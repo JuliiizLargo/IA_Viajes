@@ -68,6 +68,17 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
+        // ✅ Función para intentar parsear JSON de forma segura
+        async function safeParseJSON(response) {
+            const text = await response.text();
+            try {
+                return JSON.parse(text);
+            } catch (err) {
+                console.error("⚠️ Respuesta no JSON recibida:", text);
+                return null;
+            }
+        }
+
         // Formulario de viaje
         document.getElementById("trip-form").addEventListener("submit", async (e) => {
             e.preventDefault();
@@ -84,7 +95,12 @@
                     body: JSON.stringify({ city, days, start_date })
                 });
 
-                const data = await res.json();
+                const data = await safeParseJSON(res);
+
+                if (!data) {
+                    addMessage("⚠️ Respuesta inesperada del servidor. Intenta más tarde.", "bot", false, true);
+                    return;
+                }
 
                 if (!res.ok) {
                     addMessage("❌ Error: " + (data.error || "No se pudo generar el itinerario."), "bot", false, true);
@@ -118,7 +134,12 @@
                     body: JSON.stringify({ question })
                 });
 
-                const data = await res.json();
+                const data = await safeParseJSON(res);
+
+                if (!data) {
+                    addMessage("⚠️ Respuesta inesperada del servidor.", "bot", false, true);
+                    return;
+                }
 
                 if (!res.ok) {
                     addMessage("❌ Error: " + (data.error || "No se pudo obtener respuesta."), "bot", false, true);
@@ -134,5 +155,4 @@
     </script>
 </body>
 </html>
-
 
