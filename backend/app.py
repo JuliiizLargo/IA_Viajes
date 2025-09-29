@@ -1,65 +1,69 @@
 
 
-import os
 from flask import Flask, request, jsonify
-from dotenv import load_dotenv
+from flask_cors import CORS
+import traceback
 
-load_dotenv()
 app = Flask(__name__)
-
-# ✅ Comprobamos claves de API al inicio y avisamos si faltan
-GROQ_KEY = os.getenv("GROQ_API_KEY")
-SERP_KEY = os.getenv("SERPAPI_API_KEY")
-if not GROQ_KEY:
-    print("⚠️ Advertencia: GROQ_API_KEY no está configurada. /api/ask fallará.")
-if not SERP_KEY:
-    print("⚠️ Advertencia: SERPAPI_API_KEY no está configurada. /api/itinerary devolverá datos vacíos.")
+CORS(app)
 
 @app.route("/api/itinerary", methods=["POST"])
-def api_itinerary():
+def itinerary():
     try:
-        data = request.json or {}
+        data = request.get_json(force=True)
         city = data.get("city")
-        if not city:
-            return jsonify({"error": "Falta el destino (city)."}), 400
+        days = int(data.get("days", 0))
+        start_date = data.get("start_date")
 
-        days = int(data.get("days", 3))
-        start_date = data.get("start_date", "2025-10-01")
+        if not city or not days or not start_date:
+            return jsonify({"error": "Faltan datos: city, days o start_date"}), 400
 
-        from serp_client import search_hotels, search_flights, search_places
-        hotels = search_hotels(city) if SERP_KEY else {}
-        flights = search_flights("BOG", city, start_date) if SERP_KEY else {}
-        places = search_places(city) if SERP_KEY else {}
+        # Aquí generas tu itinerario (lógica simulada)
+        itinerary_text = f"Itinerario para {city}: {days} días desde {start_date}"
 
-        from itinerary import generate_itinerary
-        itinerary_text = generate_itinerary(city, days, hotels, flights, places)
+        # Ejemplo de archivo ICS ficticio
+        ics_file_url = "/static/itinerary.ics"
 
-        from utils import itinerary_to_ics
-        ics_file = itinerary_to_ics(city, start_date, days, itinerary_text)
-
-        return jsonify({"itinerary": itinerary_text, "ics_file": ics_file})
+        return jsonify({
+            "itinerary": itinerary_text,
+            "ics_file": ics_file_url
+        })
 
     except Exception as e:
-        # ✅ SIEMPRE devolvemos JSON en caso de error
-        return jsonify({"error": f"Error generando itinerario: {str(e)}"}), 500
+        print("❌ Error en /api/itinerary:", e)
+        traceback.print_exc()
+        return jsonify({
+            "error": "Ocurrió un error interno en el servidor",
+            "details": str(e)
+        }), 500
 
 
 @app.route("/api/ask", methods=["POST"])
-def api_ask():
+def ask():
     try:
-        from groq_client import ask_groq
-        data = request.json or {}
-        question = data.get("question", "").strip()
-        if not question:
-            return jsonify({"error": "Pregunta vacía."}), 400
+        data = request.get_json(force=True)
+        question = data.get("question")
 
-        answer = ask_groq(question)
+        if not question:
+            return jsonify({"error": "La pregunta no puede estar vacía"}), 400
+
+        # Aquí pones la lógica de tu agente (respuesta simulada)
+        answer = f"Respuesta automática para: {question}"
+
         return jsonify({"answer": answer})
 
     except Exception as e:
-        return jsonify({"error": f"Error en IA: {str(e)}"}), 500
+        print("❌ Error en /api/ask:", e)
+        traceback.print_exc()
+        return jsonify({
+            "error": "Ocurrió un error interno en el servidor",
+            "details": str(e)
+        }), 500
 
 
-if __name__ == "__main__":
-    app.run(debug=True)
+# Ruta para verificar que el servidor está vivo
+@app.route("/ping")
+def ping():
+    return jsonify({"status": "ok"})
+
 
